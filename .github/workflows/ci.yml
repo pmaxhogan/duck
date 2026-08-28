@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - name: Test
+        run: cargo test
+      - name: Format (advisory)
+        run: cargo fmt --all -- --check
+        continue-on-error: true
+      - name: Clippy (advisory)
+        run: cargo clippy --all-targets
+        continue-on-error: true
