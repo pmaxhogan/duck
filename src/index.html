@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Duck</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <div class="brand"><span class="logo">🦆</span><h1>Duck</h1></div>
+        <div id="conn" class="pill pill-wait">Starting…</div>
+      </header>
+
+      <div id="update-banner" class="banner hidden">
+        <span id="update-text"></span>
+        <button id="update-install" class="btn-small">Install &amp; restart</button>
+      </div>
+
+      <section class="toggles">
+        <label class="switch">
+          <input type="checkbox" id="enabled" />
+          <span class="track"></span>
+          <span class="switch-label">Enabled</span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="autostart" />
+          <span class="track"></span>
+          <span class="switch-label">Start on login</span>
+        </label>
+      </section>
+
+      <div id="error" class="error hidden"></div>
+
+      <main id="rules"></main>
+
+      <footer>
+        <button id="add-rule" class="btn-ghost">+ Add rule</button>
+        <span id="save-status" class="save-status"></span>
+      </footer>
+    </div>
+    <script src="main.js" defer></script>
+  </body>
+</html>

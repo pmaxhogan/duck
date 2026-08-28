@@ -1,0 +1,18 @@
+# Rust / Tauri
+/src-tauri/target
+/src-tauri/gen
+/src-tauri/WixTools
+
+# Node
+node_modules/
+
+# generated icons for platforms this desktop app does not ship
+/src-tauri/icons/android
+/src-tauri/icons/ios
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log

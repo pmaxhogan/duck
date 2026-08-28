@@ -1,0 +1,16 @@
+{
+  "name": "duck",
+  "version": "0.1.0",
+  "description": "Automatic ducking for Voicemeeter",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pmaxhogan/duck"
+  }
+}

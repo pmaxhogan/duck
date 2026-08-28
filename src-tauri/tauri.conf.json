@@ -1,0 +1,60 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Duck",
+  "version": "0.1.0",
+  "identifier": "com.pmaxhogan.duck",
+  "build": {
+    "frontendDist": "../src",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Duck",
+        "width": 760,
+        "height": 720,
+        "minWidth": 520,
+        "minHeight": 480,
+        "resizable": true,
+        "fullscreen": false,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "createUpdaterArtifacts": true,
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Utility",
+    "publisher": "pmaxhogan",
+    "shortDescription": "Automatic ducking for Voicemeeter",
+    "longDescription": "Lowers and optionally low-passes chosen Voicemeeter strips whenever other strips carry signal."
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRBRjYwMkIyQkRDOTM3QTcKUldTbk44bTlzZ0wyU2dKRVF2aTBjQnB5d2swU3hFdHMzNDRpeExiR3hFUVhGMUNsOVRNSitxakMK",
+      "endpoints": [
+        "https://github.com/pmaxhogan/duck/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}
