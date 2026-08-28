@@ -77,9 +77,11 @@ pub fn run() {
                 tray::show_window(app.handle());
             }
 
+            // Check for updates on startup, then every 6 hours while running.
             let handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                updater::check_and_notify(&handle).await;
+            std::thread::spawn(move || loop {
+                tauri::async_runtime::block_on(updater::check_and_notify(&handle));
+                std::thread::sleep(std::time::Duration::from_secs(6 * 60 * 60));
             });
 
             Ok(())
