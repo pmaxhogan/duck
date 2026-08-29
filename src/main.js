@@ -59,6 +59,7 @@ function ruleCard(rule, r) {
   right.style.display = "flex";
   right.style.gap = "10px";
   right.style.alignItems = "center";
+  right.appendChild(previewButton());
   const dot = document.createElement("span");
   dot.className = "ducking-dot";
   dot.id = `dot-${r}`;
@@ -93,13 +94,13 @@ function ruleCard(rule, r) {
 
   // Amount / timing sliders
   card.appendChild(slider("Duck amount", `${fmt(rule.duck_db, 1)} dB`, rule.duck_db, -40, 0, 0.5,
-    (v) => { rule.duck_db = v; }));
+    (v) => { rule.duck_db = v; }, "How much quieter the target strips get while ducking. More negative = quieter."));
   card.appendChild(slider("Attack", `${fmt(rule.attack_ms)} ms`, rule.attack_ms, 0, 500, 5,
-    (v) => { rule.attack_ms = v; }));
+    (v) => { rule.attack_ms = v; }, "How quickly the volume drops once a trigger starts. Lower = snappier."));
   card.appendChild(slider("Release", `${fmt(rule.release_ms)} ms`, rule.release_ms, 0, 2000, 10,
-    (v) => { rule.release_ms = v; }));
+    (v) => { rule.release_ms = v; }, "How slowly the volume rises back once the trigger stops. Higher = gentler."));
   card.appendChild(slider("Hold", `${fmt(rule.hold_ms)} ms`, rule.hold_ms, 0, 3000, 50,
-    (v) => { rule.hold_ms = v; }));
+    (v) => { rule.hold_ms = v; }, "Keep ducking this long after the trigger goes quiet, to ride over short gaps."));
 
   // Low-pass (Color) block
   card.appendChild(colorBlock(rule));
@@ -112,6 +113,28 @@ function subhead(text) {
   h.className = "subhead";
   h.textContent = text;
   return h;
+}
+
+// ---- hold-to-preview -------------------------------------------------------
+
+let previewing = false;
+
+// Force a duck (or stop) so the user can hear their settings without waiting for
+// a real trigger. De-duped so the safety net handlers below are cheap.
+function setPreview(on) {
+  if (on === previewing) return;
+  previewing = on;
+  document.querySelectorAll(".preview-btn").forEach((b) => b.classList.toggle("active", on));
+  invoke("set_preview", { on });
+}
+
+function previewButton() {
+  const btn = document.createElement("button");
+  btn.className = "preview-btn";
+  btn.textContent = "Preview";
+  btn.title = "Hold to duck now using these settings";
+  btn.addEventListener("pointerdown", (e) => { e.preventDefault(); setPreview(true); });
+  return btn;
 }
 
 function sourceRow(rule, r, src, si) {
@@ -146,7 +169,8 @@ function sourceRow(rule, r, src, si) {
   row.appendChild(meter);
 
   row.appendChild(slider("Threshold", `${fmt(src.threshold_db, 0)} dB`, src.threshold_db, -60, 0, 1,
-    (v) => { src.threshold_db = v; mark.style.left = dbToPct(v) + "%"; }));
+    (v) => { src.threshold_db = v; mark.style.left = dbToPct(v) + "%"; },
+    "Sound above this level on this input starts the duck. The marker on the meter shows where it sits."));
 
   return row;
 }
@@ -185,7 +209,7 @@ function targetChips(rule) {
   return wrap;
 }
 
-function slider(label, valText, value, min, max, step, onInput) {
+function slider(label, valText, value, min, max, step, onInput, hint) {
   const row = document.createElement("div");
   row.className = "slider-row";
   const lab = document.createElement("div");
@@ -208,6 +232,12 @@ function slider(label, valText, value, min, max, step, onInput) {
   };
   input.onchange = () => scheduleSave();
   row.appendChild(lab); row.appendChild(input);
+  if (hint) {
+    const h = document.createElement("div");
+    h.className = "hint";
+    h.textContent = hint;
+    row.appendChild(h);
+  }
   return row;
 }
 
@@ -231,9 +261,11 @@ function colorBlock(rule) {
   const controls = document.createElement("div");
   controls.className = "color-controls";
   controls.appendChild(slider("Amount (left = more low-pass)", fmt(rule.color ? rule.color.x : -0.2, 2),
-    rule.color ? rule.color.x : -0.2, -0.5, 0.5, 0.05, (v) => { if (rule.color) rule.color.x = v; }));
+    rule.color ? rule.color.x : -0.2, -0.5, 0.5, 0.05, (v) => { if (rule.color) rule.color.x = v; },
+    "Rolls off the highs while ducking, so the audio sits further back. Left = darker."));
   controls.appendChild(slider("Vertical", fmt(rule.color ? rule.color.y : 0, 2),
-    rule.color ? rule.color.y : 0, 0, 1, 0.05, (v) => { if (rule.color) rule.color.y = v; }));
+    rule.color ? rule.color.y : 0, 0, 1, 0.05, (v) => { if (rule.color) rule.color.y = v; },
+    "The pad's second axis - a subtle tone shift. Usually left at 0."));
   block.appendChild(controls);
 
   cb.onchange = () => {
@@ -337,6 +369,13 @@ async function init() {
   };
   el("add-rule").onclick = () => { cfg.rules.push(defaultRule()); render(); scheduleSave(); };
   el("update-install").onclick = () => invoke("install_update");
+
+  // Preview is a dead-man's switch: release on pointer-up anywhere, and whenever
+  // the window is hidden to the tray mid-hold (pointerup would never fire).
+  window.addEventListener("pointerup", () => setPreview(false));
+  window.addEventListener("pointercancel", () => setPreview(false));
+  window.addEventListener("blur", () => setPreview(false));
+  document.addEventListener("visibilitychange", () => { if (document.hidden) setPreview(false); });
 
   await listen("engine:status", (ev) => applyStatus(ev.payload));
   await listen("updater:available", (ev) => showUpdate(ev.payload));

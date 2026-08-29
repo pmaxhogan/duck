@@ -103,6 +103,17 @@ header {
 }
 .ducking-dot.on { opacity: 1; }
 
+.preview-btn {
+  font-size: 12px; font-weight: 600; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 999px;
+  padding: 4px 12px; cursor: pointer; touch-action: none; -webkit-user-select: none; user-select: none;
+  transition: all 0.1s;
+}
+.preview-btn:hover { border-color: var(--muted); }
+.preview-btn.active {
+  background: var(--accent); border-color: var(--accent); color: #241800;
+}
+
 .subhead { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
   color: var(--muted); margin: 14px 0 8px; }
 
@@ -126,6 +137,7 @@ select, input[type="number"] {
 .slider-row { margin: 10px 0; }
 .slider-row .slabel { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 3px; }
 .slider-row .slabel .val { color: var(--muted); font-variant-numeric: tabular-nums; }
+.hint { font-size: 11.5px; line-height: 1.35; color: var(--muted); margin-top: 4px; }
 input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 999px; background: var(--track); outline: none; }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%;

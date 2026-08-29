@@ -53,6 +53,11 @@ pub fn set_enabled(state: State<AppState>, on: bool) {
 }
 
 #[tauri::command]
+pub fn set_preview(state: State<AppState>, on: bool) {
+    state.control.set_preview(on);
+}
+
+#[tauri::command]
 pub fn set_autostart(app: AppHandle, state: State<AppState>, on: bool) -> Result<(), String> {
     let manager = app.autolaunch();
     (if on { manager.enable() } else { manager.disable() }).map_err(|e| e.to_string())?;

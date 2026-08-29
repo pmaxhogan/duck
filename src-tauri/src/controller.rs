@@ -54,6 +54,7 @@ pub struct EngineControl {
     tx: Mutex<Sender<EngineCmd>>,
     status: Arc<Mutex<EngineStatus>>,
     enabled: Arc<AtomicBool>,
+    preview: Arc<AtomicBool>,
     done: Arc<AtomicBool>,
 }
 
@@ -70,6 +71,11 @@ impl EngineControl {
     }
     pub fn enabled(&self) -> bool {
         self.enabled.load(Ordering::SeqCst)
+    }
+    /// Hold-to-preview: force every rule to duck now, ignoring source levels and
+    /// the Enabled switch. The engine reads this each poll.
+    pub fn set_preview(&self, on: bool) {
+        self.preview.store(on, Ordering::SeqCst);
     }
     pub fn status(&self) -> EngineStatus {
         self.status.lock().unwrap().clone()
@@ -91,17 +97,20 @@ pub fn spawn(app: AppHandle, config: Config, enabled: bool) -> EngineControl {
         ..Default::default()
     }));
     let enabled_flag = Arc::new(AtomicBool::new(enabled));
+    let preview_flag = Arc::new(AtomicBool::new(false));
     let done = Arc::new(AtomicBool::new(false));
 
     let st = status.clone();
     let en = enabled_flag.clone();
+    let pv = preview_flag.clone();
     let dn = done.clone();
-    thread::spawn(move || run_loop(app, config, rx, st, en, dn));
+    thread::spawn(move || run_loop(app, config, rx, st, en, pv, dn));
 
     EngineControl {
         tx: Mutex::new(tx),
         status,
         enabled: enabled_flag,
+        preview: preview_flag,
         done,
     }
 }
@@ -143,6 +152,7 @@ fn run_loop(
     rx: std::sync::mpsc::Receiver<EngineCmd>,
     status: Arc<Mutex<EngineStatus>>,
     enabled: Arc<AtomicBool>,
+    preview: Arc<AtomicBool>,
     done: Arc<AtomicBool>,
 ) {
     let mut api: Option<VoicemeeterApi> = None;
@@ -168,6 +178,12 @@ fn run_loop(
                 Ok(EngineCmd::Reload(new_cfg)) => {
                     if let Some(a) = &api {
                         restore_all(&mut duckers, a);
+                        // restore_all queues ASYNC gain/color writes. Flush them
+                        // before the fresh duckers can capture a baseline this same
+                        // loop - otherwise a baseline read taken microseconds later
+                        // returns the still-ducked values (reads only refresh after
+                        // is_dirty), pinning the un-duck level and the low-pass.
+                        a.flush();
                     }
                     cfg = new_cfg;
                     poll = poll_duration(&cfg);
@@ -250,6 +266,7 @@ fn run_loop(
         let a = api.as_ref().unwrap();
         let now = start.elapsed().as_millis() as f64;
         let on = enabled.load(Ordering::SeqCst);
+        let force = preview.load(Ordering::SeqCst);
         let mut rule_status = Vec::with_capacity(duckers.len());
 
         for d in &mut duckers {
@@ -267,8 +284,10 @@ fn run_loop(
                     }
                 })
                 .collect();
-            if on {
-                d.tick(a, now, &levels);
+            // Preview forces a duck even while the Enabled switch is off, so the
+            // user can audition settings without arming the engine.
+            if on || force {
+                d.tick_with(a, now, &levels, force);
             } else if d.state() != State::Idle {
                 d.restore(a);
             }

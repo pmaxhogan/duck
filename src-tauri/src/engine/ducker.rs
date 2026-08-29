@@ -66,9 +66,22 @@ impl Ducker {
 
     /// `levels`: source strip -> peak dB, or `None` to skip that source this tick.
     pub fn tick(&mut self, vm: &dyn StripControl, now_ms: f64, levels: &HashMap<u32, Option<f32>>) {
-        let any_loud = self.rule.sources.iter().any(|s| {
-            matches!(levels.get(&s.strip), Some(Some(db)) if *db >= s.threshold_db)
-        });
+        self.tick_with(vm, now_ms, levels, false);
+    }
+
+    /// As [`tick`], but `force` engages ducking regardless of source level - used
+    /// by the settings window's hold-to-preview button.
+    pub fn tick_with(
+        &mut self,
+        vm: &dyn StripControl,
+        now_ms: f64,
+        levels: &HashMap<u32, Option<f32>>,
+        force: bool,
+    ) {
+        let any_loud = force
+            || self.rule.sources.iter().any(|s| {
+                matches!(levels.get(&s.strip), Some(Some(db)) if *db >= s.threshold_db)
+            });
         if any_loud {
             self.last_loud_ms = now_ms;
         }
@@ -484,5 +497,24 @@ mod tests {
         let mut d = Ducker::new(make_rule(-15.0, 0.0, Some(ColorCfg { x: -0.5, y: 0.0 })), HashSet::from([1, 2]));
         d.tick(&vm, 0.0, &loud());
         assert!(vm.has_set(1, -21.59));
+    }
+
+    #[test]
+    fn force_ducks_when_sources_are_quiet() {
+        let vm = FakeVm::new();
+        let mut d = ducker();
+        d.tick_with(&vm, 0.0, &quiet(), true);
+        assert_eq!(d.state(), State::Ducked);
+        assert!(vm.has_fade(1, -21.59, 150.0));
+    }
+
+    #[test]
+    fn releasing_after_force_stops_restores_baseline() {
+        let vm = FakeVm::new();
+        let mut d = ducker();
+        d.tick_with(&vm, 0.0, &quiet(), true); // held
+        d.tick_with(&vm, 1000.0, &quiet(), false); // released -> hold elapsed -> release
+        assert_eq!(d.state(), State::Releasing);
+        assert!(vm.has_fade(1, -6.59, 600.0));
     }
 }

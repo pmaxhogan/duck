@@ -71,7 +71,12 @@ pub struct Rule {
 pub struct Config {
     #[serde(default = "default_poll")]
     pub poll_ms: f64,
-    #[serde(rename = "rule", default)]
+    // The field is `rules` everywhere it matters (the JSON bridge to the settings
+    // window, and this struct). The `rule` alias lets TOML files keep the idiomatic
+    // `[[rule]]` array-of-tables spelling that `dump_config` writes. Do NOT use
+    // `rename = "rule"` here: that would name the JSON key `rule` too, and the whole
+    // front-end reads/writes `cfg.rules` - the two would never connect.
+    #[serde(default, alias = "rule")]
     pub rules: Vec<Rule>,
 }
 
@@ -321,5 +326,44 @@ mod tests {
     #[test]
     fn default_config_is_valid() {
         validate_structure(&default_config()).unwrap();
+    }
+
+    // Regression: the settings window talks JSON and reads/writes `cfg.rules`.
+    // The config struct must SERIALIZE that key as `rules` (not `rule`), or the
+    // window silently shows defaults and drops every edit.
+    #[test]
+    fn json_bridge_uses_rules_key() {
+        let json = serde_json::to_value(&default_config()).unwrap();
+        assert!(json.get("rules").is_some(), "JSON must expose `rules`: {json}");
+        assert!(json.get("rule").is_none(), "JSON must not expose `rule`: {json}");
+    }
+
+    // Deserialize must accept BOTH shapes: `rules` from the window's JSON and
+    // `rule` from an existing on-disk TOML file.
+    #[test]
+    fn json_from_window_deserializes() {
+        let cfg: Config = serde_json::from_str(
+            r#"{"poll_ms":50,"rules":[{"sources":[{"strip":0,"threshold_db":-40}],"targets":[1],"duck_db":-8,"attack_ms":60,"release_ms":350,"hold_ms":1000,"color":{"x":-0.2,"y":0}}]}"#,
+        )
+        .unwrap();
+        assert_eq!(cfg.rules.len(), 1);
+        assert_eq!(cfg.rules[0].targets, vec![1]);
+        assert_eq!(cfg.rules[0].color, Some(ColorCfg { x: -0.2, y: 0.0 }));
+    }
+
+    #[test]
+    fn toml_rule_alias_still_parses() {
+        let cfg = parse_config("[[rule]]\nsources=[{strip=0}]\ntargets=[1]\n").unwrap();
+        assert_eq!(cfg.rules.len(), 1);
+    }
+
+    // The full round trip the app actually performs: on-disk TOML -> Config ->
+    // JSON to the window -> JSON back -> Config, must preserve every field.
+    #[test]
+    fn toml_to_json_to_config_round_trips() {
+        let disk = parse_config(&dump_config(&default_config())).unwrap();
+        let json = serde_json::to_string(&disk).unwrap();
+        let back: Config = serde_json::from_str(&json).unwrap();
+        assert_eq!(disk, back);
     }
 }
